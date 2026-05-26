@@ -3,6 +3,7 @@ Device link — pymobiledevice3 wrapper for USB device detection and pairing.
 """
 
 import time
+import asyncio
 from typing import Optional, List, Callable
 from dataclasses import dataclass
 
@@ -14,6 +15,21 @@ from pymobiledevice3.exceptions import (
 )
 
 from src.utils.logger import Logger
+
+
+def _run_async(coro):
+    """Run async function synchronously."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, coro)
+                return future.result()
+        else:
+            return loop.run_until_complete(coro)
+    except RuntimeError:
+        return asyncio.run(coro)
 
 
 @dataclass
@@ -61,7 +77,7 @@ class DeviceLink:
     def scan(self) -> List[str]:
         """Scan for connected USB devices. Returns list of UDIDs."""
         try:
-            devices = list_devices()
+            devices = _run_async(list_devices())
             return [d.serial for d in devices]
         except Exception as e:
             self._logger.error(f"USB scan failed: {e}")
@@ -76,9 +92,9 @@ class DeviceLink:
             self._logger.info(f"Connecting to device (udid={udid or 'auto'})...")
 
             if udid:
-                self._lockdown = create_using_usbmux(serial=udid)
+                self._lockdown = _run_async(create_using_usbmux(serial=udid))
             else:
-                self._lockdown = create_using_usbmux()
+                self._lockdown = _run_async(create_using_usbmux())
 
             # Read device info
             all_values = self._lockdown.all_values
