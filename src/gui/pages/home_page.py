@@ -73,6 +73,12 @@ class HomePage(QWidget):
         device_layout.addWidget(self._device_status)
         layout.addWidget(device_group)
 
+        # Deploy agent button
+        self._deploy_btn = QPushButton("📦 Deploy Agent")
+        self._deploy_btn.setEnabled(False)
+        self._deploy_btn.clicked.connect(self._deploy_agent)
+        layout.addWidget(self._deploy_btn, alignment=Qt.AlignCenter)
+
         # Jailbreak button
         self._jb_btn = QPushButton("⚡ JAILBREAK")
         self._jb_btn.setObjectName("jailbreakBtn")
@@ -105,7 +111,51 @@ class HomePage(QWidget):
             self._device_ios.setText(f"iOS: {device.ios_version}")
 
         self._device_status.setText(f"Status: {state.value}")
-        self._jb_btn.setEnabled(state == DeviceState.AGENT_RUNNING)
+
+        # Enable deploy button when device is paired
+        self._deploy_btn.setEnabled(
+            state in (DeviceState.PAIRED, DeviceState.AGENT_DEPLOYED)
+        )
+        # Enable jailbreak when agent is running OR when paired (direct mode)
+        self._jb_btn.setEnabled(
+            state in (DeviceState.PAIRED, DeviceState.AGENT_RUNNING)
+        )
+
+    def _deploy_agent(self):
+        """Deploy agent binary to device via AFC."""
+        import os
+        self._deploy_btn.setEnabled(False)
+        self._progress_label.setText("Deploying agent...")
+
+        afc = self._device_mgr.afc
+        if not afc:
+            self._progress_label.setText("AFC not available")
+            self._deploy_btn.setEnabled(True)
+            return
+
+        # Find agent binary
+        agent_path = None
+        for candidate in ["payloads/dsploit_agent_arm64e", "payloads/dsploit_agent_arm64"]:
+            if os.path.exists(candidate):
+                agent_path = candidate
+                break
+
+        if not agent_path:
+            self._progress_label.setText("Agent binary not found in payloads/")
+            self._deploy_btn.setEnabled(True)
+            return
+
+        # Deploy
+        from src.exploit.deployer import Deployer
+        deployer = Deployer(afc)
+        success = deployer.deploy_agent(agent_path)
+
+        if success:
+            self._progress_label.setText("Agent deployed! Ready to jailbreak.")
+            self._jb_btn.setEnabled(True)
+        else:
+            self._progress_label.setText("Deploy failed")
+            self._deploy_btn.setEnabled(True)
 
     def _start_jailbreak(self):
         """Start jailbreak process."""
