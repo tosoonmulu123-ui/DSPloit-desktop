@@ -3,17 +3,14 @@ name: Build DSPloit Agent
 on:
   push:
     branches: [main, master]
-    paths:
-      - 'agent/**'
-      - '.github/workflows/build-agent.yml'
   pull_request:
     branches: [main, master]
   workflow_dispatch:
 
 jobs:
   build-agent:
-    runs-on: macos-14  # Apple Silicon runner (has arm64 SDK)
-    
+    runs-on: macos-14
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,46 +21,37 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-path
           xcrun --sdk iphoneos --show-sdk-version
 
-      - name: Install ldid (for code signing)
-        run: |
-          brew install ldid
+      - name: Install ldid
+        run: brew install ldid
 
       - name: Build Agent (arm64e)
         working-directory: agent
-        run: |
-          make ARCH=arm64e 2>&1 | tee ../build-arm64e.log
-          ls -la ../payloads/ || true
-          ls -la . || true
-        continue-on-error: true
+        run: make ARCH=arm64e
 
-      - name: Build Agent (arm64 fallback)
-        if: failure()
-        working-directory: agent
+      - name: Verify binary exists
         run: |
-          make ARCH=arm64 2>&1 | tee ../build-arm64.log
-        continue-on-error: true
-
-      - name: Upload build logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: |
-            build-*.log
+          echo "=== Searching for agent binary ==="
+          find . -name "dsploit_agent*" -type f
+          ls -la payloads/ || true
+          file payloads/dsploit_agent_arm64e || true
 
       - name: Upload agent binary
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dsploit-agent
-          path: |
-            payloads/dsploit_agent_*
-            agent/dsploit_agent_*
-          if-no-files-found: warn
+          path: payloads/dsploit_agent_*
+
+      - name: Upload build logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-failed
+          path: agent/*.log
+          if-no-files-found: ignore
 
   build-python:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,24 +62,11 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
-      - name: Verify Python imports
+      - name: Verify all Python files compile
         run: |
           python -m py_compile main.py
           python -m py_compile compile.py
           find src -name "*.py" -exec python -m py_compile {} \;
-
-      - name: Build standalone (PyInstaller)
-        run: |
-          pip install pyinstaller
-          pyinstaller --onefile --name dsploit-pc main.py
-        continue-on-error: true
-
-      - name: Upload Python build
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dsploit-pc-linux
-          path: dist/dsploit-pc
+          echo "All Python files OK"
