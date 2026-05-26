@@ -1,0 +1,82 @@
+//
+//  Darksword.h
+//  DSPloit
+//
+
+#ifndef ds_h
+#define ds_h
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+
+extern int control_socket;
+extern int rw_socket;
+extern uint64_t kernel_base;
+extern uint64_t kernel_slide;
+
+typedef void (*ds_log_callback_t)(const char *message);
+typedef void (*ds_progress_callback_t)(double progress);
+
+void ds_set_log_callback(ds_log_callback_t callback);
+void ds_set_progress_callback(ds_progress_callback_t callback);
+int ds_run(void);
+bool ds_is_ready(void);
+bool ds_isvalid(uint64_t addr);
+
+uint64_t ds_kread64(uint64_t address);
+uint32_t ds_kread32(uint64_t address);
+uint16_t ds_kread16(uint64_t addr);
+uint8_t ds_kread8(uint64_t addr);
+void ds_kwrite64(uint64_t address, uint64_t value);
+void ds_kwrite32(uint64_t address, uint32_t value);
+void ds_kwrite16(uint64_t addr, uint16_t val);
+void ds_kwrite8(uint64_t what, uint8_t val);
+
+// Safe read — returns 0 on exception instead of crashing
+uint64_t ds_kread64_safe(uint64_t address);
+uint32_t ds_kread32_safe(uint64_t address);
+void ds_kread(uint64_t address, void *buffer, uint64_t size);
+void ds_kwrite(uint64_t address, void *buffer, uint64_t size);
+void ds_kwritezoneelement(uint64_t dst, const void *src, uint64_t len);
+void ds_kreadbuf(uint64_t addr, void *buf, uint64_t len);
+void ds_kwritebuf(uint64_t addr, const void *buf, uint64_t len);
+void ds_khexdump(uint64_t addr, size_t size);
+uint64_t ds_kreadptr(uint64_t va);
+uint64_t ds_kreadsmrptr(uint64_t va);
+uint64_t ds_kallocarrdec(uint64_t ptr);
+
+uint64_t ds_get_kernel_base(void);
+uint64_t ds_get_kernel_slide(void);
+
+uint64_t ds_get_pcbinfo(void);
+uint64_t ds_get_rw_socket_pcb(void);
+
+uint64_t ds_get_our_proc(void);
+uint64_t ds_get_our_task(void);
+uint64_t ds_get_kern_proc(void);
+
+/// Validate that KRW primitives are still functional
+bool ds_krw_ready(void);
+
+/// Gracefully park PCB state before app exit (enables faster recovery)
+void ds_terminal_cleanup(void);
+
+/// XPF/ChOma symbol → slid kernel VA (needs kernelcache + init_offsets).
+uint64_t ds_xpf_resolve_runtime(const char *name);
+
+/// Mach-O symtab in Documents/kernelcache → slid VA (fast; for trust-cache globals).
+uint64_t ds_kcache_symbol_runtime(const char *name);
+uint64_t ds_kcache_symbol_unslid(const char *name);
+void ds_kcache_symbol_cache_clear(void);
+
+int ds_kcache_analyze_trust_slots(void);
+size_t ds_kcache_trust_slot_count(void);
+uint64_t ds_kcache_trust_slot_at(size_t index);
+uint64_t ds_kcache_analyze_data_offset(void);
+void ds_kcache_trust_slots_clear(void);
+
+#define SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(v) \
+    ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] != NSOrderedAscending)
+
+#endif /* ds_h */

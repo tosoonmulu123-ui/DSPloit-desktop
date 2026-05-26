@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.spec
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs (keep .gitkeep)
+logs/*.txt
+logs/*.log
+
+# Config (user-specific)
+config.json
+
+# Build artifacts
+payloads/dsploit_agent_*
+*.o
+*.dSYM/
+
+# Cache
+cache/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
