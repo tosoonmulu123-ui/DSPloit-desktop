@@ -41,7 +41,9 @@ LDFLAGS = -arch $(ARCH) \
           -framework IOKit \
           -framework IOSurface \
           -framework CoreFoundation \
-          -framework Security
+          -framework Security \
+          -Llib -lxpf -lgrabkernel2 \
+          -Wl,-rpath,@executable_path/lib
 
 ENTITLEMENTS = entitlements.plist
 
