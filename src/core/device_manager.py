@@ -82,7 +82,7 @@ class DeviceManager:
     def _set_state(self, new_state: DeviceState):
         old = self._state
         self._state = new_state
-        self._logger.info(f"State: {old.value} → {new_state.value}")
+        self._logger.info(f"State: {old.value} -> {new_state.value}")
         if self._on_state_change:
             self._on_state_change(new_state)
 

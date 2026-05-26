@@ -34,7 +34,7 @@ class Logger:
         # Session log file
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self._session_file = self._log_dir / f"session_{timestamp}.txt"
-        self._file_handle = open(self._session_file, "a", buffering=1)  # Line buffered
+        self._file_handle = open(self._session_file, "a", encoding="utf-8", buffering=1)  # Line buffered, UTF-8
 
         # Console handler
         self._console_handler = logging.StreamHandler(sys.stdout)

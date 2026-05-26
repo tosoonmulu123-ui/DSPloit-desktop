@@ -30,8 +30,7 @@ def main():
     app.setApplicationVersion("2.0.0")
     app.setOrganizationName("DSPloit")
 
-    # High DPI support
-    app.setAttribute(Qt.AA_UseHighDpiPixmaps)
+    # High DPI support (removed deprecated AA_UseHighDpiPixmaps)
 
     # Create and show main window
     window = MainWindow()
