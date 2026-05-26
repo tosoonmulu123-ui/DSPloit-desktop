@@ -32,6 +32,8 @@ jobs:
         working-directory: agent
         run: |
           make ARCH=arm64e 2>&1 | tee ../build-arm64e.log
+          ls -la ../payloads/ || true
+          ls -la . || true
         continue-on-error: true
 
       - name: Build Agent (arm64 fallback)
@@ -50,11 +52,14 @@ jobs:
             build-*.log
 
       - name: Upload agent binary
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: dsploit-agent
-          path: payloads/dsploit_agent_*
+          path: |
+            payloads/dsploit_agent_*
+            agent/dsploit_agent_*
+          if-no-files-found: warn
 
   build-python:
     runs-on: ubuntu-latest
