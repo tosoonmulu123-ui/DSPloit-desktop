@@ -28,9 +28,13 @@ CFLAGS = -arch $(ARCH) \
          -isysroot $(shell xcrun --sdk $(SDK) --show-sdk-path) \
          -I. -Iheaders -ITaskRop -Ipe -Iexploits \
          -fobjc-arc \
+         -fmodules \
          -DAGENT_MODE=1 \
          -Wno-unused-variable \
-         -Wno-unused-function
+         -Wno-unused-function \
+         -Wno-deprecated-declarations \
+         -Wno-incompatible-pointer-types \
+         -Wno-nonportable-include-path
 
 LDFLAGS = -arch $(ARCH) \
           -framework Foundation \

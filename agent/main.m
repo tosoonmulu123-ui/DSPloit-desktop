@@ -8,6 +8,7 @@
 
 #import <Foundation/Foundation.h>
 #import <sys/stat.h>
+#import <spawn.h>
 
 #include "comm.h"
 #include "darksword.h"
@@ -25,6 +26,20 @@
 
 // RemoteCall init wrapper (defined in agent_bridge.m)
 extern int rc_init_process(const char *name);
+
+// posix_spawn wrapper to replace run_command() which is unavailable on iOS
+static int run_command(const char *cmd) {
+    pid_t pid;
+    char *argv[] = {"/bin/sh", "-c", (char *)cmd, NULL};
+    extern char **environ;
+    int ret = posix_spawn(&pid, "/bin/sh", NULL, NULL, argv, environ);
+    if (ret == 0) {
+        int status;
+        waitpid(pid, &status, 0);
+        return WEXITSTATUS(status);
+    }
+    return ret;
+}
 // ═══════════════════════════════════════════════════════════════
 // MARK: - Command Handler
 // ═══════════════════════════════════════════════════════════════
@@ -163,7 +178,7 @@ static void handle_command(const char *cmd) {
             mkdir(dirs[i], 0755);
         }
         // Extract bootstrap tarball if present
-        int tar_ret = system(
+        int tar_ret = run_command(
             "tar -xf /var/tmp/.dsploit_bootstrap.tar.xz -C /var/jb/ 2>/dev/null"
         );
         comm_log("Bootstrap dirs created, tar ret=%d", tar_ret);
@@ -428,7 +443,7 @@ static void handle_command(const char *cmd) {
             "/var/jb/Library/TweakInject", NULL
         };
         for (int i = 0; dirs[i]; i++) mkdir(dirs[i], 0755);
-        system("tar -xf /var/tmp/.dsploit_bootstrap.tar.xz -C /var/jb/ 2>/dev/null");
+        run_command("tar -xf /var/tmp/.dsploit_bootstrap.tar.xz -C /var/jb/ 2>/dev/null");
         comm_log("[5/7] ✓ Bootstrap deployed");
 
         // Step 6: AMFI disable
