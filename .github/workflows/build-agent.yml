@@ -1,0 +1,92 @@
+name: Build DSPloit Agent
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'agent/**'
+      - '.github/workflows/build-agent.yml'
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-agent:
+    runs-on: macos-14  # Apple Silicon runner (has arm64 SDK)
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Install ldid (for code signing)
+        run: |
+          brew install ldid
+
+      - name: Build Agent (arm64e)
+        working-directory: agent
+        run: |
+          make ARCH=arm64e 2>&1 | tee ../build-arm64e.log
+        continue-on-error: true
+
+      - name: Build Agent (arm64 fallback)
+        if: failure()
+        working-directory: agent
+        run: |
+          make ARCH=arm64 2>&1 | tee ../build-arm64.log
+        continue-on-error: true
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            build-*.log
+
+      - name: Upload agent binary
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsploit-agent
+          path: payloads/dsploit_agent_*
+
+  build-python:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Verify Python imports
+        run: |
+          python -m py_compile main.py
+          python -m py_compile compile.py
+          find src -name "*.py" -exec python -m py_compile {} \;
+
+      - name: Build standalone (PyInstaller)
+        run: |
+          pip install pyinstaller
+          pyinstaller --onefile --name dsploit-pc main.py
+        continue-on-error: true
+
+      - name: Upload Python build
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsploit-pc-linux
+          path: dist/dsploit-pc
