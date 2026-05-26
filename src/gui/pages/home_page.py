@@ -22,19 +22,77 @@ class JailbreakWorker(QThread):
         self._device_mgr = device_mgr
 
     def run(self):
+        """
+        Jailbreak flow:
+        Since agent can't run on non-jailbroken device, we use the
+        DSPloit iOS app approach: the exploit runs IN-PROCESS.
+        
+        For PC-based control, the actual exploit must be triggered
+        from an app already on the device (DSPloit iOS app) or via
+        a developer-signed helper.
+        
+        This worker monitors the device state and communicates
+        with the agent once it's running post-jailbreak.
+        """
+        from src.utils.logger import Logger
+        logger = Logger.get_instance()
+        
+        # Check if agent is already running (device was previously jailbroken)
         agent = self._device_mgr.agent
-        if not agent:
-            self.finished.emit(False, "Agent not running")
+        if agent and agent.send_ping():
+            logger.info("Agent already running — executing full chain")
+            from src.core.exploit_engine import ExploitEngine
+            engine = ExploitEngine(agent)
+            engine.set_progress_callback(
+                lambda step, msg: self.progress.emit(step.value, msg)
+            )
+            success = engine.run_full_chain()
+            msg = "Jailbreak complete!" if success else "Jailbreak failed"
+            self.finished.emit(success, msg)
             return
 
-        from src.core.exploit_engine import ExploitEngine
-        engine = ExploitEngine(agent)
-        engine.set_progress_callback(
-            lambda step, msg: self.progress.emit(step.value, msg)
+        # Agent not running — try to set up agent communication
+        afc = self._device_mgr.afc
+        if not afc:
+            self.finished.emit(False, "AFC not available")
+            return
+
+        # Write FULL_CHAIN command for agent (if it gets triggered)
+        logger.info("Writing exploit trigger...")
+        self.progress.emit(1, "Step 1/7: Triggering exploit...")
+        
+        from src.usb.agent_comm import AgentComm
+        agent_comm = AgentComm(afc)
+        
+        # Try to communicate with agent
+        self.progress.emit(1, "Waiting for agent response...")
+        
+        # Poll for agent ready (it may have been triggered externally)
+        import time
+        for attempt in range(30):  # 30 seconds timeout
+            if agent_comm.check_agent_ready():
+                logger.info("Agent is ready!")
+                self._device_mgr.setup_agent()
+                
+                # Now run full chain
+                from src.core.exploit_engine import ExploitEngine
+                engine = ExploitEngine(agent_comm)
+                engine.set_progress_callback(
+                    lambda step, msg: self.progress.emit(step.value, msg)
+                )
+                success = engine.run_full_chain()
+                msg = "Jailbreak complete!" if success else "Jailbreak failed"
+                self.finished.emit(success, msg)
+                return
+            time.sleep(1)
+        
+        self.finished.emit(False, 
+            "Agent not responding.\n\n"
+            "To jailbreak from PC, you need to:\n"
+            "1. Open DSPloit app on device first (triggers exploit)\n"
+            "2. OR: Use a developer-signed helper app to launch the agent\n\n"
+            "The agent binary is deployed at /var/tmp/.dsploit_agent"
         )
-        success = engine.run_full_chain()
-        msg = "Jailbreak complete!" if success else "Jailbreak failed"
-        self.finished.emit(success, msg)
 
 
 class HomePage(QWidget):

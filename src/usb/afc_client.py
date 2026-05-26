@@ -42,7 +42,12 @@ class AFCClient:
         if not self._afc:
             return None
         try:
-            return self._afc.get_file_contents(remote_path)
+            import asyncio
+            import inspect
+            result = self._afc.get_file_contents(remote_path)
+            if inspect.iscoroutine(result):
+                return asyncio.run(result)
+            return result
         except Exception as e:
             self._logger.debug(f"AFC read {remote_path}: {e}")
             return None
@@ -52,7 +57,11 @@ class AFCClient:
         if not self._afc:
             return False
         try:
-            self._afc.set_file_contents(remote_path, data)
+            import asyncio
+            import inspect
+            result = self._afc.set_file_contents(remote_path, data)
+            if inspect.iscoroutine(result):
+                asyncio.run(result)
             return True
         except Exception as e:
             self._logger.error(f"AFC write {remote_path}: {e}")
